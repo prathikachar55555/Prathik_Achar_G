@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CometChat AI Studio</title>
+  <!-- CometChat SDK -->
+  <script type="text/javascript" src="https://unpkg.com/@cometchat/chat-sdk-javascript@latest/CometChat.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #0f172a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #f8fafc; }
+    
+    .app-layout { display: flex; width: 950px; height: 650px; background: #1e293b; border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,0.3); overflow: hidden; }
+    
+    /* Sidebar CSS */
+    .sidebar { width: 280px; background: #0f172a; border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 16px; }
+    .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .sidebar-header h4 { margin: 0; font-size: 14px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .new-chat-btn { width: 100%; padding: 10px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 16px; transition: background 0.2s; }
+    .new-chat-btn:hover { background: #1d4ed8; }
+    .history-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #1e293b; border-radius: 6px; font-size: 13px; color: #cbd5e1; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+    .history-item:hover, .history-item.active { background: #334155; border-color: #3b82f6; color: #fff; }
+    .history-title { flex: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; margin-right: 8px; }
+    .delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 2px 4px; opacity: 0.7; transition: opacity 0.2s; }
+    .delete-btn:hover { opacity: 1; }
+
+    /* Chat Area CSS */
+    .chat-container { flex: 1; display: flex; flex-direction: column; background: #1e293b; }
+    .chat-header { padding: 16px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    .chat-header h3 { margin: 0; font-size: 16px; color: #f8fafc; }
+    .user-select-container { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
+    select { padding: 6px 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; outline: none; font-size: 13px; cursor: pointer; }
+    
+    .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #0f172a; }
+    .message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+    .sent { align-self: flex-end; background: #2563eb; color: #fff; border-bottom-right-radius: 2px; }
+    .received { align-self: flex-start; background: #334155; color: #f8fafc; border-bottom-left-radius: 2px; }
+    .timestamp { font-size: 10px; opacity: 0.7; margin-top: 4px; text-align: right; }
+    .typing-indicator { font-size: 12px; color: #94a3b8; font-style: italic; align-self: flex-start; margin-left: 4px; }
+    
+    .chat-input { padding: 16px; background: #1e293b; border-top: 1px solid #334155; display: flex; gap: 10px; }
+    input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #475569; background: #0f172a; color: #fff; border-radius: 8px; outline: none; font-size: 14px; }
+    button.send-btn { padding: 10px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    button.send-btn:hover { background: #1d4ed8; }
+    .empty-state { text-align: center; color: #64748b; font-size: 14px; margin: auto 0; }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+  <!-- History Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h4>Chat History</h4>
+    </div>
+    <button class="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
+    <div class="history-list" id="history-list">
+      <!-- Dynamic chat history items -->
+    </div>
+  </div>
+
+  <!-- Chat Window -->
+  <div class="chat-container">
+    <div class="chat-header">
+      <h3 id="bot-display-name">Tech & Code Specialist</h3>
+      <div class="user-select-container">
+        <label for="receiver-select">Select Mode</label>
+        <select id="receiver-select" onchange="onModeChange()">
+          <option value="cometchat-uid-2">Tech & Code Specialist</option>
+          <option value="cometchat-uid-3">AI & Data Analytics Expert</option>
+          <option value="cometchat-uid-4">Career & Innovation Specialist</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="message-container">
+      <div class="empty-state">No messages in this chat. Start typing!</div>
+    </div>
+
+    <div class="chat-input">
+      <input type="text" id="message-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)" />
+      <button class="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const appID = "16839626011662d67";
+  const region = "IN";
+  const authKey = "21aa2fa2335d06afb48c63ff96ec711a9100ff4e";
+  const currentUID = "cometchat-uid-1";
+
+  let chatHistory = JSON.parse(localStorage.getItem('cometchat_history')) || [];
+  let currentChatId = null;
+
+  const modeNames = {
+    "cometchat-uid-2": "Tech & Code Specialist",
+    "cometchat-uid-3": "AI & Data Analytics Expert",
+    "cometchat-uid-4": "Career & Innovation Specialist"
+  };
+
+  // Initialize CometChat
+  const appSetting = new CometChat.AppSettingsBuilder().subscribePresenceForAllUsers().setRegion(region).build();
+  CometChat.init(appID, appSetting).then(() => {
+    CometChat.login(currentUID, authKey).then(
+      user => {
+        console.log("Login successful:", user);
+        listenForMessages();
+        renderHistoryList();
+        
+        // Load mode-specific chat on initial load
+        const selectedMode = document.getElementById("receiver-select").value;
+        switchModeChat(selectedMode);
+      },
+      error => { console.error("Login failed:", error); }
+    );
+  });
+
+  // Switch chats when mode dropdown is changed so fields don't mix
+  function onModeChange() {
+    const selectedUID = document.getElementById("receiver-select").value;
+    document.getElementById("bot-display-name").innerText = modeNames[selectedUID];
+    switchModeChat(selectedUID);
+  }
+
+  function switchModeChat(modeUID) {
+    // Find active chat matching this specific mode
+    let existingChat = chatHistory.find(c => c.mode === modeUID);
+    if (existingChat) {
+      loadChat(existingChat.id);
+    } else {
+      startNewChatForMode(modeUID);
+    }
+  }
+
+  function renderHistoryList() {
+    const listContainer = document.getElementById("history-list");
+    listContainer.innerHTML = "";
+    
+    // Filter history based on selected mode so chats remain isolated
+    const activeMode = document.getElementById("receiver-select").value;
+    const filteredHistory = chatHistory.filter(c => c.mode === activeMode);
+
+    filteredHistory.forEach(chat => {
+      const item = document.createElement("div");
+      item.className = `history-item ${chat.id === currentChatId ? 'active' : ''}`;
+      
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "history-title";
+      titleSpan.innerText = chat.title || "New Conversation";
+      titleSpan.onclick = () => loadChat(chat.id);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "delete-btn";
+      deleteBtn.innerHTML = "🗑️";
+      deleteBtn.title = "Delete Chat";
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        deleteChat(chat.id);
+      };
+
+      item.appendChild(titleSpan);
+      item.appendChild(deleteBtn);
+      listContainer.appendChild(item);
+    });
+  }
+
+  function startNewChat() {
+    const activeMode = document.getElementById("receiver-select").value;
+    startNewChatForMode(activeMode);
+  }
+
+  function startNewChatForMode(modeUID) {
+    currentChatId = 'chat_' + Date.now();
+    const newSession = {
+      id: currentChatId,
+      mode: modeUID,
+      title: modeNames[modeUID] + " Chat",
+      messages: []
+    };
+    chatHistory.unshift(newSession);
+    saveHistory();
+    renderHistoryList();
+    renderMessages([]);
+  }
+
+  function deleteChat(chatId) {
+    chatHistory = chatHistory.filter(c => c.id !== chatId);
+    saveHistory();
+    const activeMode = document.getElementById("receiver-select").value;
+    const remaining = chatHistory.filter(c => c.mode === activeMode);
+    
+    if (remaining.length > 0) {
+      loadChat(remaining[0].id);
+    } else {
+      startNewChatForMode(activeMode);
+    }
+  }
+
+  function loadChat(chatId) {
+    currentChatId = chatId;
+    const session = chatHistory.find(c => c.id === chatId);
+    if (session) {
+      renderMessages(session.messages);
+      renderHistoryList();
+    }
+  }
+
+  function saveHistory() {
+    localStorage.setItem('cometchat_history', JSON.stringify(chatHistory));
+  }
+
+  function renderMessages(messages) {
+    const container = document.getElementById("message-container");
+    container.innerHTML = "";
+
+    if (!messages || messages.length === 0) {
+      container.innerHTML = `<div class="empty-state">No messages in this chat. Start typing!</div>`;
+      return;
+    }
+
+    messages.forEach(msg => appendMessageUI(msg.text, msg.type, msg.time));
+  }
+
+  function appendMessageUI(text, type, timeStr) {
+    const container = document.getElementById("message-container");
+    const emptyState = container.querySelector(".empty-state");
+    if (emptyState) emptyState.remove();
+
+    const msgDiv = document.createElement("div");
+    msgDiv.className = `message ${type}`;
+    const displayTime = timeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase();
+    
+    msgDiv.innerHTML = `${text}<div class="timestamp">${displayTime}</div>`;
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function saveMessageToCurrentChat(text, type) {
+    const session = chatHistory.find(c => c.id === currentChatId);
+    if (session) {
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase();
+      session.messages.push({ text, type, time: timeStr });
+
+      if (session.messages.length === 1 && type === 'sent') {
+        session.title = text.length > 22 ? text.substring(0, 22) + "..." : text;
+      }
+      saveHistory();
+      renderHistoryList();
+    }
+  }
+
+  function showTypingIndicator() {
+    const container = document.getElementById("message-container");
+    const typingDiv = document.createElement("div");
+    typingDiv.id = "typing-indicator";
+    typingDiv.className = "typing-indicator";
+    typingDiv.innerText = "Bot is typing...";
+    container.appendChild(typingDiv);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function hideTypingIndicator() {
+    const typingDiv = document.getElementById("typing-indicator");
+    if (typingDiv) typingDiv.remove();
+  }
+
+  function handleKeyPress(e) {
+    if (e.key === "Enter") sendMessage();
+  }
+
+  function sendMessage() {
+    const input = document.getElementById("message-input");
+    const messageText = input.value.trim();
+    const receiverUID = document.getElementById("receiver-select").value;
+
+    if (!messageText) return;
+
+    appendMessageUI(messageText, "sent");
+    saveMessageToCurrentChat(messageText, "sent");
+    input.value = "";
+
+    const textMessage = new CometChat.TextMessage(receiverUID, messageText, CometChat.RECEIVER_TYPE.USER);
+    CometChat.sendMessage(textMessage).then(
+      msg => {
+        handleAIReply(receiverUID, messageText);
+      },
+      error => { console.error("Message send failed:", error); }
+    );
+  }
+
+  // Reliable Multi-Engine API Generator
+  async function generateFieldResponse(botUID, userQuery) {
+    const query = userQuery.toLowerCase();
+
+    // 1. Tech & Code Specialist
+    if (botUID === "cometchat-uid-2") {
+      if (query.includes("build") || query.includes("app") || query.includes("idea")) {
+        return "<b>Tech & Code Roadmap:</b><br>1. Define app core features & UI wireframe.<br>2. Select Tech Stack (Frontend: HTML/JS or React, Backend: Node.js/Python).<br>3. Setup CometChat SDK for realtime messaging.<br>4. Test APIs and deploy on Vercel/GitHub Pages.";
+      }
+      return `[Tech & Code Specialist] To solve "${userQuery}", structure your architecture clearly, ensure robust error handling, and test endpoints sequentially.`;
+    }
+
+    // 2. AI & Data Analytics Expert
+    if (botUID === "cometchat-uid-3") {
+      if (query.includes("build") || query.includes("app") || query.includes("idea")) {
+        return "<b>Data & AI Architecture Plan:</b><br>1. Define dataset collection & preprocessing pipeline (Pandas/NumPy).<br>2. Select Model Architecture (LLM, NLP, or Classification).<br>3. Connect model endpoints to web client.<br>4. Monitor inference accuracy and evaluate performance metrics.";
+      }
+      return `[AI & Data Analytics Expert] Analyzing "${userQuery}": Focus on data cleaning, Feature Engineering, and choosing optimal validation metrics.`;
+    }
+
+    // 3. Career & Innovation Specialist
+    if (botUID === "cometchat-uid-4") {
+      if (query.includes("build") || query.includes("app") || query.includes("idea")) {
+        return "<b>Career & Startup Strategy:</b><br>1. Identify target problem statement & user domain.<br>2. Build a Minimum Viable Product (MVP) for Hackathons/Vipronix.<br>3. Register enterprise details (MSME/D-U-N-S).<br>4. Prepare pitch slides highlighting market viability.";
+      }
+      return `[Career & Innovation Specialist] Regarding "${userQuery}": Align your technical execution with project positioning and pitch clarity to maximize impact.`;
+    }
+
+    return "How can I assist you further in this specialized domain?";
+  }
+
+  async function handleAIReply(botUID, userPrompt) {
+    const lowerPrompt = userPrompt.toLowerCase();
+    let replyText = "";
+
+    showTypingIndicator();
+
+    const isAboutPrathik = lowerPrompt.includes("prathik achar") || lowerPrompt.includes("tell me about prathik");
+    const creationKeywords = ["who created", "who invented", "who made", "who built", "your creator", "your inventor", "who designed"];
+    const isCreationQuery = creationKeywords.some(keyword => lowerPrompt.includes(keyword));
+
+    if (isAboutPrathik) {
+      replyText = "Prathik Achar G is a second-year Computer Science & Engineering student (specializing in Data Science) at Yenepoya Institute of Technology, Moodbidri. Born on April 28, 2007, he is a tech enthusiast skilled in Python, Java, and Data Analytics, with a strong focus on AI and software development. Beyond academics, he is the founder of Vipronix—an MSME-registered software enterprise—where he continuously builds practical, intelligent software applications.";
+    } else if (isCreationQuery) {
+      replyText = "I was created by Prathik Achar G.";
+    } else {
+      // Try fetching online AI API first
+      try {
+        const promptParam = encodeURIComponent(`Mode: ${modeNames[botUID]}. User question: ${userPrompt}`);
+        const res = await fetch('https://text.pollinations.ai/' + promptParam);
+        if (res.ok) {
+          const text = await res.text();
+          if (text && !text.includes("ENOSPC") && !text.includes("error")) {
+            replyText = text;
+          } else {
+            replyText = await generateFieldResponse(botUID, userPrompt);
+          }
+        } else {
+          replyText = await generateFieldResponse(botUID, userPrompt);
+        }
+      } catch (err) {
+        replyText = await generateFieldResponse(botUID, userPrompt);
+      }
+    }
+
+    setTimeout(() => {
+      hideTypingIndicator();
+      appendMessageUI(replyText, "received");
+      saveMessageToCurrentChat(replyText, "received");
+    }, 1000);
+  }
+
+  function listenForMessages() {
+    const listenerID = "HACKATHON_LISTENER";
+    CometChat.addMessageListener(
+      listenerID,
+      new CometChat.MessageListener({
+        onTextMessageReceived: textMessage => {
+          appendMessageUI(textMessage.getText(), "received");
+          saveMessageToCurrentChat(textMessage.getText(), "received");
+        }
+      })
+    );
+  }
+</script>
+
+</body>
+</html>
