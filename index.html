@@ -103,7 +103,6 @@
 /* ---------- Config ---------- */
 const APP_ID="16839626011662d67", REGION="in", AUTH_KEY="21aa2fa2335d06afb48c63ff96ec711a9100ff4e";
 const ME_UID="cometchat-uid-1";
-const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; // Insert your Gemini API Key here
 
 const PERSONAS=[
  {id:"ds",uid:"cometchat-uid-2",name:"Data Science Coach",badge:"DATA SCIENCE",icon:"📊",accent:"#22d3ee",
@@ -113,7 +112,7 @@ const PERSONAS=[
  {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡️",accent:"#f472b6",
   ctx:"Reviews code for bugs, security issues and clean design.",
   system:"You are a meticulous Code Auditor. Find bugs, security flaws and code smells, and suggest fixes. Be concise; put code in fenced code blocks.",
-  chips:["🐛 Debug Code","🔒 Security Review","♻️️ Suggest Refactors"]},
+  chips:["🐛 Debug Code","🔒 Security Review","♻ Suggest Refactors"]},
  {id:"gen",uid:"cometchat-uid-4",name:"General AI",badge:"GENERAL",icon:"✨",accent:"#a78bfa",
   ctx:"Everyday assistant for questions, writing and ideas.",
   system:"You are a helpful, concise general-purpose AI assistant.",
@@ -225,23 +224,14 @@ function buildTabs(){
     $("tabs").append(t)});
 }
 
-/* ---------- AI (Official Gemini API Integration) ---------- */
+/* ---------- Free Keyless AI Integration ---------- */
 async function askAI(prompt, sys) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: `${sys}\n\n${prompt}` }]
-      }]
-    })
-  });
-
-  if (!response.ok) throw new Error("Gemini API Error " + response.status);
-  const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+  const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(sys)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("AI API " + res.status);
+  const out = (await res.text()).trim();
+  if (!out) throw new Error("Empty response");
+  return out;
 }
 
 function pushBot(id,text,sid){sid=sid||curId(id);const h=load(id,sid);h.push({role:"bot",text,ts:Date.now()});save(id,h,sid);if(id===activeId&&sid===curId(id)){hideTyping();render()}}
@@ -274,7 +264,7 @@ async function send(text){
   const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
   let reply;
   try{reply=await askAI(context+"\nAssistant:",p.system)}
-  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please ensure your Gemini API Key is valid and try again."}
+  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please check your internet connection."}
   pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
 }
 
