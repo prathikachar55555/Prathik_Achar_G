@@ -297,89 +297,99 @@ function exportChat(){
 }
 
 /* ---------- Voice input ---------- */
-(function(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition,mic=$("mic"),input=$("text"),toastEl=$("toast");
-  const inFrame=(()=>{try{return window.self!==window.top}catch{return true}})();
-  let rec=null,wantOn=false,base="",finalText="",quickEnds=0,startedAt=0,hideT=null;
 
-  // Messages show right above the input so they can't be missed
-  function say(t,err,sticky){
-    setStatus(t,err);console.log("[mic]",t);
-    toastEl.textContent=t;toastEl.className="toast"+(err?" err":"");toastEl.hidden=false;
-    clearTimeout(hideT);if(!sticky)hideT=setTimeout(()=>{toastEl.hidden=true},9000);
+(function() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  // Safely grab elements
+  const micBtn = document.getElementById("mic") || document.querySelector(".mic-btn") || document.querySelector("button[title*='Voice']");
+  const inputField = document.getElementById("text") || document.querySelector("input[type='text']") || document.querySelector("textarea");
+  const toastEl = document.getElementById("toast");
+
+  if (!micBtn || !inputField) {
+    console.error("Microphone or Text Input element not found in DOM.");
+    return;
   }
-  const setUI=on=>{mic.classList.toggle("rec",on);mic.title=on?"Stop recording":"Voice input";mic.setAttribute("aria-pressed",on)};
-  const stop=()=>{wantOn=false;try{rec&&rec.stop()}catch{};setUI(false)};
 
-  mic.onclick=async()=>{
-    if(wantOn){stop();say("Mic stopped.");return}
-    say("🎤 Mic clicked…");
-    if(!SR){say("This browser has no speech recognition. Use Chrome or Edge (not Firefox/Brave).",true);return}
-    if(inFrame){say("This page is inside a preview frame, which blocks the microphone. Open the file in its own browser tab.",true);return}
-    if(!window.isSecureContext){say("Mic needs https:// or http://localhost. Run: python -m http.server 8000 then open http://localhost:8000",true);return}
-    try{
-      say("Requesting microphone… click Allow.",false,true);
-      const st=await navigator.mediaDevices.getUserMedia({audio:true});
-      st.getTracks().forEach(t=>t.stop());
-    }catch(e){
-      say(e.name==="NotFoundError"?"No microphone detected on this device.":"Microphone permission denied ("+e.name+"). Click the 🔒 in the address bar and allow it.",true);
+  function showStatus(text, isError = false) {
+    console.log("[Mic Status]", text);
+    if (toastEl) {
+      toastEl.textContent = text;
+      toastEl.className = "toast" + (isError ? " err" : "");
+      toastEl.hidden = false;
+    }
+  }
+
+  if (!SpeechRecognition) {
+    showStatus("Web Speech API is not supported in this browser. Use Chrome or Edge.", true);
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = false;
+  recognition.lang = "en-US";
+  recognition.interimResults = true;
+
+  let isListening = false;
+  let baseText = "";
+
+  micBtn.onclick = async () => {
+    if (isListening) {
+      recognition.stop();
       return;
     }
-    base=input.value?input.value.trimEnd()+" ":"";finalText="";quickEnds=0;wantOn=true;
-    rec=build();
-    setTimeout(()=>{try{rec.start()}catch(e){wantOn=false;setUI(false);say("Couldn't start: "+e.message,true)}},300);
+
+    try {
+      showStatus("Requesting mic permission...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop()); // Permission granted
+    } catch (err) {
+      showStatus("Microphone permission denied (" + err.name + "). Click lock icon in address bar to allow.", true);
+      return;
+    }
+
+    baseText = inputField.value ? inputField.value.trim() + " " : "";
+    try {
+      recognition.start();
+    } catch (e) {
+      showStatus("Could not start microphone: " + e.message, true);
+    }
   };
 
-  function build(){
-    const r=new SR();
-    r.lang=navigator.language||"en-US";
-    r.interimResults=true;
-    r.continuous=false;
-    r.onstart=()=>{startedAt=Date.now();setUI(true);say("🔴 Listening… speak now.",false,true)};
-    r.onaudiostart=()=>say("🔴 Mic is live — speak now.",false,true);
-    r.onresult=e=>{
-      quickEnds=0;let interim="";
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        const t=e.results[i][0].transcript;
-        if(e.results[i].isFinal) finalText+=t+" "; else interim+=t;
-      }
-      input.value=(base+finalText+interim).replace(/\s+/g," ").trimStart();
-      say("🔴 Heard: "+(finalText+interim).slice(-70),false,true);
-    };
-    r.onerror=e=>{
-      if(e.error==="no-speech"||e.error==="aborted")return;
-      const msg={
-        "not-allowed":"Microphone blocked. Click the 🔒 in the address bar and allow the microphone.",
-        "service-not-allowed":"Speech service is blocked here. Use Chrome or Edge over http://localhost.",
-        "audio-capture":"No working microphone found. Check your input device in system sound settings.",
-        "network":"Speech service unreachable. Chrome sends audio to Google's servers: check internet/VPN/firewall."
-      }[e.error];
-      wantOn=false;setUI(false);say(msg||("Mic error: "+e.error),true);
-    };
-    r.onend=()=>{
-      if(!wantOn){setUI(false);return}
-      // Session ended almost instantly with nothing heard => the "blinking" problem. Stop after 3 tries.
-      if(Date.now()-startedAt<1200)quickEnds++;
-      if(quickEnds>=3){
-        wantOn=false;setUI(false);
-        say("The mic keeps closing immediately. Check Windows/Mac Sound settings → Input (right device, volume up), close other apps using the mic, and make sure you're on Chrome/Edge at http://localhost.",true);
-        return;
-      }
-      setTimeout(()=>{if(wantOn){try{r.start()}catch{}}},250);
-    };
-    return r;
-  }
-  $("composer").addEventListener("submit",()=>{if(wantOn)stop()});
-})();
+  recognition.onstart = () => {
+    isListening = true;
+    micBtn.classList.add("rec");
+    showStatus("🔴 Listening... Speak now!");
+  };
 
-/* ---------- In-app confirm dialog ---------- */
-function askConfirm(msg){
-  return new Promise(res=>{
-    const m=$("modal");$("mtext").textContent=msg;m.hidden=false;
-    const done=v=>{m.hidden=true;$("myes").onclick=$("mno").onclick=null;res(v)};
-    $("myes").onclick=()=>done(true);$("mno").onclick=()=>done(false);
-  });
-}
+  recognition.onresult = (event) => {
+    let transcript = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+    inputField.value = baseText + transcript;
+    showStatus("🔴 Heard: " + transcript);
+  };
+
+  recognition.onerror = (event) => {
+    isListening = false;
+    micBtn.classList.remove("rec");
+    if (event.error === "no-speech") {
+      showStatus("No speech detected. Please try speaking again.", true);
+    } else {
+      showStatus("Mic error: " + event.error, true);
+    }
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    micBtn.classList.remove("rec");
+    showStatus("Mic stopped.");
+  };
+})();
+  
+
+
 
 /* ---------- History manager: many chats per persona, all deletable ---------- */
 function goTo(pid){activeId=pid;try{localStorage.setItem("cc-studio:active",pid)}catch{};}
