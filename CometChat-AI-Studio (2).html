@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CometChat AI Studio</title>
+<style>
+  :root { --accent:#22d3ee; --bg:#0b1020; --panel:#121a30; --panel2:#18223d; --ink:#e8edf7; --muted:#8b9ab3; --line:#26335a; --err:#ff6b6b; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body { font-family:"Segoe UI",system-ui,sans-serif; background:radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb,var(--accent) 18%,transparent), transparent), var(--bg); color:var(--ink); display:flex; justify-content:center; padding:12px; transition:background .4s; }
+  .app { width:100%; max-width:760px; height:100%; background:var(--panel); border:1px solid var(--line); border-radius:16px; display:flex; flex-direction:column; overflow:hidden; }
+  header { padding:14px 16px; border-bottom:2px solid var(--accent); display:flex; align-items:center; gap:10px; flex-wrap:wrap; transition:border-color .3s; }
+  header h1 { margin:0; font-size:1.05rem; flex:1 1 auto; }
+  .badge { font-size:.68rem; letter-spacing:.08em; font-weight:700; padding:4px 10px; border-radius:99px; background:color-mix(in srgb,var(--accent) 20%,transparent); color:var(--accent); border:1px solid var(--accent); }
+  .status { font-size:.75rem; color:var(--muted); width:100%; }
+  .status.err { color:var(--err); }
+  .tabs { display:flex; gap:6px; padding:10px 12px 0; overflow-x:auto; }
+  .tab { flex:1 0 auto; padding:9px 14px; border:1px solid var(--line); border-bottom:0; border-radius:10px 10px 0 0; background:var(--panel2); color:var(--muted); cursor:pointer; font:inherit; white-space:nowrap; }
+  .tab[aria-selected="true"] { color:var(--ink); background:var(--bg); border-color:var(--accent); box-shadow:inset 0 2px 0 var(--accent); }
+  .ctx { padding:8px 16px; font-size:.78rem; color:var(--muted); background:var(--bg); border-bottom:1px solid var(--line); }
+  .ctx b { color:var(--accent); }
+  #messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; background:var(--bg); }
+  .row { display:flex; flex-direction:column; max-width:86%; }
+  .row.me { align-self:flex-end; align-items:flex-end; }
+  .msg { padding:10px 13px; border-radius:14px; background:var(--panel2); border:1px solid var(--line); white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.45; }
+  .me .msg { background:var(--accent); color:#04141a; border-color:transparent; }
+  .msg pre { margin:8px 0 0; padding:10px; background:#060a16; border:1px solid var(--line); border-radius:8px; overflow-x:auto; white-space:pre; font:.82rem/1.45 Consolas,monospace; color:#d6e2ff; }
+  .msg .lang { display:block; font-size:.65rem; color:var(--accent); text-transform:uppercase; margin-top:8px; }
+  .meta { font-size:.68rem; color:var(--muted); margin-top:3px; }
+  .actions { display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .actions button { font-size:.74rem; padding:5px 9px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--ink); cursor:pointer; }
+  .actions button:hover { border-color:var(--accent); color:var(--accent); }
+  .typing { color:var(--muted); font-style:italic; }
+  .empty { margin:auto; text-align:center; color:var(--muted); max-width:340px; }
+  .empty .big { font-size:2rem; }
+  .chips { display:flex; gap:8px; padding:10px 12px 0; flex-wrap:wrap; background:var(--panel); }
+  .chip { padding:7px 12px; border-radius:99px; border:1px solid var(--accent); background:transparent; color:var(--accent); cursor:pointer; font:inherit; font-size:.8rem; }
+  .chip:hover { background:color-mix(in srgb,var(--accent) 18%,transparent); }
+  form { display:flex; gap:8px; padding:12px; background:var(--panel); }
+  form input { flex:1; min-width:0; padding:11px 13px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font:inherit; }
+  .btn { padding:0 16px; border:0; border-radius:10px; background:var(--accent); color:#04141a; font-weight:700; cursor:pointer; font:inherit; font-weight:700; }
+  .mic { width:44px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; font-size:1.1rem; }
+  .mic.rec { background:var(--err); border-color:var(--err); animation:pulse 1s infinite; }
+  .mic:disabled { opacity:.4; cursor:not-allowed; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 6px rgba(255,107,107,.25); } }
+  .app { position:relative; }
+  .iconbtn { padding:6px 11px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); cursor:pointer; font:inherit; font-size:.78rem; }
+  .iconbtn:hover { border-color:var(--accent); color:var(--accent); }
+  .iconbtn.danger:hover { border-color:var(--err); color:var(--err); }
+  .toast { margin:8px 12px 0; padding:8px 12px; border-radius:10px; font-size:.8rem; background:var(--panel2); border:1px solid var(--accent); color:var(--ink); }
+  .toast.err { border-color:var(--err); color:var(--err); }
+  .hist { position:absolute; inset:0; background:var(--bg); z-index:10; overflow-y:auto; padding:16px; }
+  .hist[hidden], .toast[hidden] { display:none; }
+  .hhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .hhead h2 { margin:0; font-size:1.05rem; }
+  .hcard { border:1px solid var(--line); border-left:4px solid var(--c,var(--accent)); background:var(--panel); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+  .hcard h3 { margin:0 0 4px; font-size:.95rem; }
+  .hcard p { margin:0 0 10px; color:var(--muted); font-size:.8rem; overflow-wrap:anywhere; }
+  .hcard .btns { display:flex; gap:8px; }
+  .plus { width:34px; height:34px; padding:0; border-radius:50%; border:0; background:var(--accent); color:#04141a; font-size:1.4rem; line-height:1; font-weight:700; cursor:pointer; }
+  .plus:hover { filter:brightness(1.15); }
+  .htop { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  .htop h3 { margin:0; }
+  .srow { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
+  .srow .st { flex:1 1 180px; min-width:0; }
+  .srow .st b { display:block; font-size:.85rem; overflow-wrap:anywhere; }
+  .srow .st span { font-size:.72rem; color:var(--muted); }
+  .modal { position:absolute; inset:0; z-index:30; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .modal[hidden] { display:none; }
+  .mbox { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; max-width:340px; width:100%; }
+  .mbox p { margin:0 0 14px; line-height:1.4; }
+  .mbox .mbtn { display:flex; gap:8px; justify-content:flex-end; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  @media (max-width:520px) { body { padding:0; } .app { border-radius:0; border:0; } .row { max-width:94%; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>⚡ CometChat AI Studio</h1>
+    <span class="badge" id="badge"></span>
+    <button type="button" class="plus" id="newBtn" title="New chat" aria-label="New chat">+</button>
+    <button type="button" class="iconbtn" id="histBtn">🗂 History</button>
+    <span class="status" id="status">Connecting to CometChat…</span>
+  </header>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div class="ctx" id="ctx"></div>
+  <div id="messages" aria-live="polite"></div>
+  <div class="toast" id="toast" hidden></div>
+  <div class="chips" id="chips"></div>
+  <form id="composer">
+    <button type="button" class="mic" id="mic" title="Voice input" aria-label="Toggle voice input">🎤</button>
+    <input id="text" placeholder="Type or speak a message" autocomplete="off">
+    <button class="btn" id="send">Send</button>
+  </form>
+  <div class="hist" id="hist" hidden></div>
+  <div class="modal" id="modal" hidden><div class="mbox"><p id="mtext"></p><div class="mbtn"><button type="button" class="iconbtn" id="mno">Cancel</button><button type="button" class="iconbtn danger" id="myes">Yes, delete</button></div></div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@cometchat/chat-sdk-javascript/CometChat.js"></script>
+<script>
+/* ---------- Config (dev only: don't publish the Auth Key) ---------- */
+const APP_ID="16839626011662d67", REGION="in", AUTH_KEY="21aa2fa2335d06afb48c63ff96ec711a9100ff4e";
+const ME_UID="cometchat-uid-1";
+const AI_URL="https://text.pollinations.ai/";
+
+const PERSONAS=[
+ {id:"ds",uid:"cometchat-uid-2",name:"Data Science Coach",badge:"DATA SCIENCE",icon:"📊",accent:"#22d3ee",
+  ctx:"Explains datasets, statistics and Python/pandas workflows.",
+  system:"You are a friendly Data Science Coach. Help with data analysis, statistics, pandas and ML. Be concise; put code in fenced code blocks.",
+  chips:["⚡ Generate Python Script","🔍 Analyze Data Set","📈 Explain a Metric"]},
+ {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡️",accent:"#f472b6",
+  ctx:"Reviews code for bugs, security issues and clean design.",
+  system:"You are a meticulous Code Auditor. Find bugs, security flaws and code smells, and suggest fixes. Be concise; put code in fenced code blocks.",
+  chips:["🐛 Debug Code","🔒 Security Review","♻️ Suggest Refactors"]},
+ {id:"gen",uid:"cometchat-uid-4",name:"General AI",badge:"GENERAL",icon:"✨",accent:"#a78bfa",
+  ctx:"Everyday assistant for questions, writing and ideas.",
+  system:"You are a helpful, concise general-purpose AI assistant.",
+  chips:["💡 Brainstorm Ideas","✍️ Draft an Email","📚 Explain Simply"]}
+];
+
+/* ---------- State & storage (one isolated history per persona) ---------- */
+const $=id=>document.getElementById(id);
+// Each persona has many chat sessions; load()/save() work on the persona's current session.
+const STORE_KEY="cc-studio:sessions:v2";
+let store=(()=>{try{return JSON.parse(localStorage.getItem(STORE_KEY))||{}}catch{return{}}})();
+const persist=()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(store))}catch{}};
+const sid8=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const titleOf=h=>{const f=h.find(m=>m.role==="user");return f?f.text.replace(/\s+/g," ").slice(0,40):"New chat"};
+function pstore(pid){
+  if(!store[pid]){
+    store[pid]={cur:null,list:[]};
+    try{ // migrate the old single-history format
+      const old=JSON.parse(localStorage.getItem("cc-studio:hist:"+pid));
+      if(old&&old.length){const x={id:sid8(),title:titleOf(old),ts:old[old.length-1].ts,msgs:old};store[pid].list.push(x);store[pid].cur=x.id}
+      localStorage.removeItem("cc-studio:hist:"+pid);
+    }catch{}
+  }
+  const ps=store[pid];
+  if(!ps.list.some(x=>x.id===ps.cur)){
+    if(ps.list.length)ps.cur=ps.list[0].id;
+    else{const x={id:sid8(),title:"New chat",ts:Date.now(),msgs:[]};ps.list.push(x);ps.cur=x.id}
+  }
+  return ps;
+}
+const curId=pid=>pstore(pid).cur;
+const getSession=(pid,sid)=>pstore(pid).list.find(x=>x.id===(sid||pstore(pid).cur));
+const load=(pid,sid)=>{const x=getSession(pid,sid);return x?x.msgs:[]};
+const save=(pid,h,sid)=>{const x=getSession(pid,sid);if(!x)return;x.msgs=h;x.ts=Date.now();x.title=titleOf(h);persist()};
+function newChat(pid){ // reuse the current chat if it's still empty
+  const ps=pstore(pid),cur=getSession(pid);if(cur.msgs.length)
+  {const x={id:sid8(),title:"New chat",ts:Date.now(),msgs:[]};ps.list.unshift(x);ps.cur=x.id;persist()}
+}
+let activeId=(()=>{try{return localStorage.getItem("cc-studio:active")}catch{}})();
+if(!PERSONAS.some(p=>p.id===activeId)) activeId=PERSONAS[0].id;
+const persona=(id=activeId)=>PERSONAS.find(p=>p.id===id);
+const pending={}; // persona id -> number of replies in flight
+let ccReady=false, ccChain=Promise.resolve();
+const ccTask=fn=>(ccChain=ccChain.then(fn).catch(e=>console.warn("CometChat:",e)));
+
+function setStatus(t,err){const s=$("status");s.textContent=t;s.className="status"+(err?" err":"")}
+
+/* ---------- Rendering ---------- */
+function fmt(el,text){ // fenced code blocks + **bold**, built with DOM (no innerHTML)
+  const re=/```(\w*)\n?([\s\S]*?)```/g; let last=0,m;
+  const plain=s=>s.split(/(\*\*[^*]+\*\*)/).forEach(part=>{
+    if(/^\*\*[^*]+\*\*$/.test(part)){const b=document.createElement("b");b.textContent=part.slice(2,-2);el.append(b)}
+    else if(part) el.append(document.createTextNode(part))});
+  while((m=re.exec(text))){
+    plain(text.slice(last,m.index).replace(/\n+$/,""));
+    if(m[1]){const l=document.createElement("span");l.className="lang";l.textContent=m[1];el.append(l)}
+    const pre=document.createElement("pre"),code=document.createElement("code");
+    code.textContent=m[2].replace(/\n$/,"");pre.append(code);el.append(pre);last=re.lastIndex;
+  }
+  plain(text.slice(last));
+}
+const timeStr=ts=>new Date(ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+
+function msgRow(m){
+  const row=document.createElement("div");row.className="row"+(m.role==="user"?" me":"");
+  const bub=document.createElement("div");bub.className="msg";fmt(bub,m.text);row.append(bub);
+  const meta=document.createElement("div");meta.className="meta";
+  meta.textContent=(m.role==="user"?"You":persona().name)+" · "+timeStr(m.ts);row.append(meta);
+  if(m.role==="bot"){
+    const a=document.createElement("div");a.className="actions";
+    [["📋 Copy Code / Text",b=>copyMsg(m,b)],["📝 Summarize Session",b=>summarize()],["📥 Export Chat (.txt)",()=>exportChat()]]
+      .forEach(([label,fn])=>{const b=document.createElement("button");b.type="button";b.textContent=label;b.onclick=()=>fn(b);a.append(b)});
+    row.append(a);
+  }
+  return row;
+}
+function render(){
+  const box=$("messages"),h=load(activeId),p=persona();box.innerHTML="";
+  if(!h.length){
+    box.innerHTML='<div class="empty"><div class="big"></div><p></p></div>';
+    box.querySelector(".big").textContent=p.icon;
+    box.querySelector("p").textContent="You're chatting with the "+p.name+". "+p.ctx+" Try a suggestion below.";
+  } else h.forEach(m=>box.append(msgRow(m)));
+  if(pending[curId(activeId)]) showTyping();
+  box.scrollTop=box.scrollHeight;
+}
+function showTyping(){
+  if($("typing"))return;const d=document.createElement("div");d.id="typing";d.className="row";
+  d.innerHTML='<div class="msg typing"></div>';d.firstChild.textContent=persona().name+" is typing…";
+  $("messages").append(d);$("messages").scrollTop=1e9;
+}
+const hideTyping=()=>$("typing")?.remove();
+
+function applyPersona(){ // visual mode transition
+  const p=persona();
+  document.documentElement.style.setProperty("--accent",p.accent);
+  $("badge").textContent=p.icon+" "+p.badge;
+  $("ctx").innerHTML="Active system context: <b></b> — "; $("ctx").querySelector("b").textContent=p.name;
+  $("ctx").append(document.createTextNode(p.ctx));
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.id===activeId));
+  const c=$("chips");c.innerHTML="";
+  p.chips.forEach(txt=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=txt;
+    b.onclick=()=>{$("text").value=txt;send(txt)};c.append(b)});
+  render();
+}
+function buildTabs(){
+  PERSONAS.forEach(p=>{const t=document.createElement("button");t.className="tab";t.role="tab";t.dataset.id=p.id;
+    t.textContent=p.icon+" "+p.name;
+    t.onclick=()=>{activeId=p.id;try{localStorage.setItem("cc-studio:active",p.id)}catch{};applyPersona()};
+    $("tabs").append(t)});
+}
+
+/* ---------- AI ---------- */
+async function askAI(prompt,sys){
+  const res=await fetch(AI_URL+encodeURIComponent(prompt)+"?system="+encodeURIComponent(sys));
+  if(!res.ok)throw new Error("AI API "+res.status);
+  const out=(await res.text()).trim();if(!out)throw new Error("Empty response");return out;
+}
+function pushBot(id,text,sid){sid=sid||curId(id);const h=load(id,sid);h.push({role:"bot",text,ts:Date.now()});save(id,h,sid);if(id===activeId&&sid===curId(id)){hideTyping();render()}}
+
+/* ---------- CometChat (mirrors messages; app still works if offline) ---------- */
+async function ccInit(){
+  try{
+    if(typeof CometChat==="undefined")throw new Error("SDK not loaded");
+    await CometChat.init(APP_ID,new CometChat.AppSettingsBuilder().subscribePresenceForAllUsers().setRegion(REGION).build());
+    let u=await CometChat.getLoggedinUser();
+    if(u&&u.getUid()!==ME_UID){await CometChat.logout();u=null}
+    if(!u)await CometChat.login(ME_UID,AUTH_KEY);
+    ccReady=true;setStatus("CometChat connected as "+ME_UID);
+  }catch(e){setStatus("CometChat offline — running in local mode ("+(e.message||e.code)+")",true)}
+}
+const ccSendUser=(uid,text)=>ccReady&&ccTask(()=>CometChat.sendMessage(new CometChat.TextMessage(uid,text,CometChat.RECEIVER_TYPE.USER)));
+const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{ // brief account swap to post as the persona
+  await CometChat.logout();
+  try{await CometChat.login(uid,AUTH_KEY);await CometChat.sendMessage(new CometChat.TextMessage(ME_UID,text,CometChat.RECEIVER_TYPE.USER))}
+  finally{await CometChat.login(ME_UID,AUTH_KEY)}
+});
+
+/* ---------- Send / reply ---------- */
+async function send(text){
+  text=(text||"").trim();if(!text)return;
+  const id=activeId,p=persona(id),sid=curId(id);
+  const h=load(id,sid);h.push({role:"user",text,ts:Date.now()});save(id,h,sid);
+  $("text").value="";render();ccSendUser(p.uid,text);
+  pending[sid]=(pending[sid]||0)+1;if(curId(activeId)===sid)showTyping();
+  const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
+  let reply;
+  try{reply=await askAI(context+"\nAssistant:",p.system)}
+  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please try again in a moment."}
+  pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
+}
+
+/* ---------- Action buttons (tool calls) ---------- */
+async function copyToClipboard(t){
+  try{await navigator.clipboard.writeText(t)}
+  catch{const a=document.createElement("textarea");a.value=t;document.body.append(a);a.select();document.execCommand("copy");a.remove()}
+}
+async function copyMsg(m,btn){
+  const code=[...m.text.matchAll(/```\w*\n?([\s\S]*?)```/g)].map(x=>x[1].trim());
+  await copyToClipboard(code.length?code.join("\n\n"):m.text);
+  const old=btn.textContent;btn.textContent="✅ Copied!";setTimeout(()=>btn.textContent=old,1400);
+}
+const transcript=id=>load(id).map(m=>`[${new Date(m.ts).toLocaleString()}] ${m.role==="user"?"You":persona(id).name}: ${m.text}`).join("\n\n");
+async function summarize(){
+  const id=activeId,sid=curId(id),h=load(id,sid);
+  if(h.length<2){pushBot(id,"📝 There isn't enough conversation to summarize yet.");return}
+  pending[sid]=(pending[sid]||0)+1;showTyping();
+  let out;
+  try{out=await askAI("Summarize this conversation in 3-5 short bullet points:\n\n"+transcript(id),"You summarize chat sessions clearly and briefly.")}
+  catch{ // local fallback summary
+    const asks=h.filter(m=>m.role==="user").slice(-3).map(m=>"• "+m.text.slice(0,80));
+    out=`${h.length} messages so far. Recent topics:\n`+asks.join("\n");
+  }
+  pending[sid]--;pushBot(id,"📝 **Session summary**\n"+out,sid);
+}
+function exportChat(){
+  const id=activeId,h=load(id);if(!h.length){setStatus("Nothing to export yet.",true);return}
+  const url=URL.createObjectURL(new Blob([`CometChat AI Studio — ${persona(id).name}\n\n`+transcript(id)],{type:"text/plain"}));
+  const a=document.createElement("a");a.href=url;a.download=`chat-${id}-${new Date().toISOString().slice(0,10)}.txt`;
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+/* ---------- Voice input ---------- */
+(function(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition,mic=$("mic"),input=$("text"),toastEl=$("toast");
+  const inFrame=(()=>{try{return window.self!==window.top}catch{return true}})();
+  let rec=null,wantOn=false,base="",finalText="",quickEnds=0,startedAt=0,hideT=null;
+
+  // Messages show right above the input so they can't be missed
+  function say(t,err,sticky){
+    setStatus(t,err);console.log("[mic]",t);
+    toastEl.textContent=t;toastEl.className="toast"+(err?" err":"");toastEl.hidden=false;
+    clearTimeout(hideT);if(!sticky)hideT=setTimeout(()=>{toastEl.hidden=true},9000);
+  }
+  const setUI=on=>{mic.classList.toggle("rec",on);mic.title=on?"Stop recording":"Voice input";mic.setAttribute("aria-pressed",on)};
+  const stop=()=>{wantOn=false;try{rec&&rec.stop()}catch{};setUI(false)};
+
+  mic.onclick=async()=>{
+    if(wantOn){stop();say("Mic stopped.");return}
+    say("🎤 Mic clicked…");
+    if(!SR){say("This browser has no speech recognition. Use Chrome or Edge (not Firefox/Brave).",true);return}
+    if(inFrame){say("This page is inside a preview frame, which blocks the microphone. Open the file in its own browser tab.",true);return}
+    if(!window.isSecureContext){say("Mic needs https:// or http://localhost. Run: python -m http.server 8000 then open http://localhost:8000",true);return}
+    try{
+      say("Requesting microphone… click Allow.",false,true);
+      const st=await navigator.mediaDevices.getUserMedia({audio:true});
+      st.getTracks().forEach(t=>t.stop());
+    }catch(e){
+      say(e.name==="NotFoundError"?"No microphone detected on this device.":"Microphone permission denied ("+e.name+"). Click the 🔒 in the address bar and allow it.",true);
+      return;
+    }
+    base=input.value?input.value.trimEnd()+" ":"";finalText="";quickEnds=0;wantOn=true;
+    rec=build();
+    setTimeout(()=>{try{rec.start()}catch(e){wantOn=false;setUI(false);say("Couldn't start: "+e.message,true)}},300);
+  };
+
+  function build(){
+    const r=new SR();
+    r.lang=navigator.language||"en-US";
+    r.interimResults=true;
+    r.continuous=false;
+    r.onstart=()=>{startedAt=Date.now();setUI(true);say("🔴 Listening… speak now.",false,true)};
+    r.onaudiostart=()=>say("🔴 Mic is live — speak now.",false,true);
+    r.onresult=e=>{
+      quickEnds=0;let interim="";
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal) finalText+=t+" "; else interim+=t;
+      }
+      input.value=(base+finalText+interim).replace(/\s+/g," ").trimStart();
+      say("🔴 Heard: "+(finalText+interim).slice(-70),false,true);
+    };
+    r.onerror=e=>{
+      if(e.error==="no-speech"||e.error==="aborted")return;
+      const msg={
+        "not-allowed":"Microphone blocked. Click the 🔒 in the address bar and allow the microphone.",
+        "service-not-allowed":"Speech service is blocked here. Use Chrome or Edge over http://localhost.",
+        "audio-capture":"No working microphone found. Check your input device in system sound settings.",
+        "network":"Speech service unreachable. Chrome sends audio to Google's servers: check internet/VPN/firewall."
+      }[e.error];
+      wantOn=false;setUI(false);say(msg||("Mic error: "+e.error),true);
+    };
+    r.onend=()=>{
+      if(!wantOn){setUI(false);return}
+      // Session ended almost instantly with nothing heard => the "blinking" problem. Stop after 3 tries.
+      if(Date.now()-startedAt<1200)quickEnds++;
+      if(quickEnds>=3){
+        wantOn=false;setUI(false);
+        say("The mic keeps closing immediately. Check Windows/Mac Sound settings → Input (right device, volume up), close other apps using the mic, and make sure you're on Chrome/Edge at http://localhost.",true);
+        return;
+      }
+      setTimeout(()=>{if(wantOn){try{r.start()}catch{}}},250);
+    };
+    return r;
+  }
+  $("composer").addEventListener("submit",()=>{if(wantOn)stop()});
+})();
+
+/* ---------- In-app confirm dialog ---------- */
+function askConfirm(msg){
+  return new Promise(res=>{
+    const m=$("modal");$("mtext").textContent=msg;m.hidden=false;
+    const done=v=>{m.hidden=true;$("myes").onclick=$("mno").onclick=null;res(v)};
+    $("myes").onclick=()=>done(true);$("mno").onclick=()=>done(false);
+  });
+}
+
+/* ---------- History manager: many chats per persona, all deletable ---------- */
+function goTo(pid){activeId=pid;try{localStorage.setItem("cc-studio:active",pid)}catch{};}
+function renderHistory(){
+  const box=$("hist");box.innerHTML="";
+  const mk=(txt,fn,cls)=>{const b=document.createElement("button");b.type="button";b.className="iconbtn "+(cls||"");b.textContent=txt;b.onclick=fn;return b};
+  const head=document.createElement("div");head.className="hhead";
+  const h2=document.createElement("h2");h2.textContent="🗂 Chat history";
+  head.append(h2,mk("✕ Close",()=>{box.hidden=true}));box.append(head);
+  PERSONAS.forEach(p=>{
+    const ps=pstore(p.id),used=ps.list.filter(x=>x.msgs.length);
+    const sec=document.createElement("div");sec.className="hcard";sec.style.setProperty("--c",p.accent);
+    const top=document.createElement("div");top.className="htop";
+    const t=document.createElement("h3");t.textContent=`${p.icon} ${p.name} (${used.length} chat${used.length===1?"":"s"})`;
+    const tb=document.createElement("div");tb.className="btns";
+    tb.append(mk("＋ New chat",()=>{goTo(p.id);newChat(p.id);applyPersona();box.hidden=true}));
+    const da=mk("🗑 Delete all",()=>deleteSessions(p.id),"danger");da.disabled=!used.length;tb.append(da);
+    top.append(t,tb);sec.append(top);
+    if(!used.length){const e=document.createElement("p");e.textContent="No saved chats yet.";sec.append(e)}
+    used.forEach(x=>{
+      const row=document.createElement("div");row.className="srow";
+      const st=document.createElement("div");st.className="st";
+      const b=document.createElement("b");b.textContent=(x.id===ps.cur&&p.id===activeId?"● ":"")+x.title;
+      const sp=document.createElement("span");sp.textContent=`${x.msgs.length} messages · ${new Date(x.ts).toLocaleString()}`;
+      st.append(b,sp);
+      const bt=document.createElement("div");bt.className="btns";
+      bt.append(
+        mk("Open",()=>{goTo(p.id);ps.cur=x.id;persist();applyPersona();box.hidden=true}),
+        mk("🗑",async()=>{
+          if(!await askConfirm(`Delete the chat “${x.title}”?`))return;
+          deleteSession(p.id,x.id);if(p.id===activeId)render();renderHistory();
+        },"danger"));
+      row.append(st,bt);sec.append(row);
+    });
+    box.append(sec);
+  });
+  const all=mk("🗑 Delete ALL chats (every persona)",()=>deleteSessions(null),"danger");box.append(all);
+}
+function deleteSession(pid,sid){const ps=pstore(pid);ps.list=ps.list.filter(x=>x.id!==sid);persist();pstore(pid)}
+async function deleteSessions(pid){
+  const ids=pid?[pid]:PERSONAS.map(p=>p.id);
+  const ok=await askConfirm(pid?`Delete all ${persona(pid).name} chats?`:"Delete ALL chats in all three personas?");
+  if(!ok)return;
+  ids.forEach(i=>{store[i]={cur:null,list:[]};pstore(i)});persist();
+  if(ids.includes(activeId))render();renderHistory();
+}
+
+/* ---------- Boot ---------- */
+$("composer").addEventListener("submit",e=>{e.preventDefault();send($("text").value)});
+$("newBtn").onclick=()=>{newChat(activeId);render();$("hist").hidden=true;$("text").focus();setStatus("✨ New chat started.")};
+$("histBtn").onclick=()=>{renderHistory();$("hist").hidden=false};
+buildTabs();applyPersona();ccInit();
+</script>
+</body>
+</html>
