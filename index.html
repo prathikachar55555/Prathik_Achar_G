@@ -39,7 +39,7 @@
   .chip:hover { background:color-mix(in srgb,var(--accent) 18%,transparent); }
   form { display:flex; gap:8px; padding:12px; background:var(--panel); }
   form input { flex:1; min-width:0; padding:11px 13px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font:inherit; }
-  .btn { padding:0 16px; border:0; border-radius:10px; background:var(--accent); color:#04141a; font-weight:700; cursor:pointer; font:inherit; font-weight:700; }
+  .btn { padding:0 16px; border:0; border-radius:10px; background:var(--accent); color:#04141a; font-weight:700; cursor:pointer; font:inherit; }
   .mic { width:44px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; font-size:1.1rem; }
   .mic.rec { background:var(--err); border-color:var(--err); animation:pulse 1s infinite; }
   .mic:disabled { opacity:.4; cursor:not-allowed; }
@@ -100,10 +100,10 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@cometchat/chat-sdk-javascript/CometChat.js"></script>
 <script>
-/* ---------- Config (dev only: don't publish the Auth Key) ---------- */
+/* ---------- Config ---------- */
 const APP_ID="16839626011662d67", REGION="in", AUTH_KEY="21aa2fa2335d06afb48c63ff96ec711a9100ff4e";
 const ME_UID="cometchat-uid-1";
-const AI_URL="https://text.pollinations.ai/";
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"; // Insert your Gemini API Key here
 
 const PERSONAS=[
  {id:"ds",uid:"cometchat-uid-2",name:"Data Science Coach",badge:"DATA SCIENCE",icon:"📊",accent:"#22d3ee",
@@ -113,16 +113,15 @@ const PERSONAS=[
  {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡️",accent:"#f472b6",
   ctx:"Reviews code for bugs, security issues and clean design.",
   system:"You are a meticulous Code Auditor. Find bugs, security flaws and code smells, and suggest fixes. Be concise; put code in fenced code blocks.",
-  chips:["🐛 Debug Code","🔒 Security Review","♻️ Suggest Refactors"]},
+  chips:["🐛 Debug Code","🔒 Security Review","♻️️ Suggest Refactors"]},
  {id:"gen",uid:"cometchat-uid-4",name:"General AI",badge:"GENERAL",icon:"✨",accent:"#a78bfa",
   ctx:"Everyday assistant for questions, writing and ideas.",
   system:"You are a helpful, concise general-purpose AI assistant.",
   chips:["💡 Brainstorm Ideas","✍️ Draft an Email","📚 Explain Simply"]}
 ];
 
-/* ---------- State & storage (one isolated history per persona) ---------- */
+/* ---------- State & storage ---------- */
 const $=id=>document.getElementById(id);
-// Each persona has many chat sessions; load()/save() work on the persona's current session.
 const STORE_KEY="cc-studio:sessions:v2";
 let store=(()=>{try{return JSON.parse(localStorage.getItem(STORE_KEY))||{}}catch{return{}}})();
 const persist=()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify(store))}catch{}};
@@ -131,7 +130,7 @@ const titleOf=h=>{const f=h.find(m=>m.role==="user");return f?f.text.replace(/\s
 function pstore(pid){
   if(!store[pid]){
     store[pid]={cur:null,list:[]};
-    try{ // migrate the old single-history format
+    try{
       const old=JSON.parse(localStorage.getItem("cc-studio:hist:"+pid));
       if(old&&old.length){const x={id:sid8(),title:titleOf(old),ts:old[old.length-1].ts,msgs:old};store[pid].list.push(x);store[pid].cur=x.id}
       localStorage.removeItem("cc-studio:hist:"+pid);
@@ -148,21 +147,21 @@ const curId=pid=>pstore(pid).cur;
 const getSession=(pid,sid)=>pstore(pid).list.find(x=>x.id===(sid||pstore(pid).cur));
 const load=(pid,sid)=>{const x=getSession(pid,sid);return x?x.msgs:[]};
 const save=(pid,h,sid)=>{const x=getSession(pid,sid);if(!x)return;x.msgs=h;x.ts=Date.now();x.title=titleOf(h);persist()};
-function newChat(pid){ // reuse the current chat if it's still empty
+function newChat(pid){
   const ps=pstore(pid),cur=getSession(pid);if(cur.msgs.length)
   {const x={id:sid8(),title:"New chat",ts:Date.now(),msgs:[]};ps.list.unshift(x);ps.cur=x.id;persist()}
 }
 let activeId=(()=>{try{return localStorage.getItem("cc-studio:active")}catch{}})();
 if(!PERSONAS.some(p=>p.id===activeId)) activeId=PERSONAS[0].id;
 const persona=(id=activeId)=>PERSONAS.find(p=>p.id===id);
-const pending={}; // persona id -> number of replies in flight
+const pending={};
 let ccReady=false, ccChain=Promise.resolve();
 const ccTask=fn=>(ccChain=ccChain.then(fn).catch(e=>console.warn("CometChat:",e)));
 
 function setStatus(t,err){const s=$("status");s.textContent=t;s.className="status"+(err?" err":"")}
 
 /* ---------- Rendering ---------- */
-function fmt(el,text){ // fenced code blocks + **bold**, built with DOM (no innerHTML)
+function fmt(el,text){
   const re=/```(\w*)\n?([\s\S]*?)```/g; let last=0,m;
   const plain=s=>s.split(/(\*\*[^*]+\*\*)/).forEach(part=>{
     if(/^\*\*[^*]+\*\*$/.test(part)){const b=document.createElement("b");b.textContent=part.slice(2,-2);el.append(b)}
@@ -207,7 +206,7 @@ function showTyping(){
 }
 const hideTyping=()=>$("typing")?.remove();
 
-function applyPersona(){ // visual mode transition
+function applyPersona(){
   const p=persona();
   document.documentElement.style.setProperty("--accent",p.accent);
   $("badge").textContent=p.icon+" "+p.badge;
@@ -226,15 +225,28 @@ function buildTabs(){
     $("tabs").append(t)});
 }
 
-/* ---------- AI ---------- */
-async function askAI(prompt,sys){
-  const res=await fetch(AI_URL+encodeURIComponent(prompt)+"?system="+encodeURIComponent(sys));
-  if(!res.ok)throw new Error("AI API "+res.status);
-  const out=(await res.text()).trim();if(!out)throw new Error("Empty response");return out;
+/* ---------- AI (Official Gemini API Integration) ---------- */
+async function askAI(prompt, sys) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{ text: `${sys}\n\n${prompt}` }]
+      }]
+    })
+  });
+
+  if (!response.ok) throw new Error("Gemini API Error " + response.status);
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
 }
+
 function pushBot(id,text,sid){sid=sid||curId(id);const h=load(id,sid);h.push({role:"bot",text,ts:Date.now()});save(id,h,sid);if(id===activeId&&sid===curId(id)){hideTyping();render()}}
 
-/* ---------- CometChat (mirrors messages; app still works if offline) ---------- */
+/* ---------- CometChat ---------- */
 async function ccInit(){
   try{
     if(typeof CometChat==="undefined")throw new Error("SDK not loaded");
@@ -246,7 +258,7 @@ async function ccInit(){
   }catch(e){setStatus("CometChat offline — running in local mode ("+(e.message||e.code)+")",true)}
 }
 const ccSendUser=(uid,text)=>ccReady&&ccTask(()=>CometChat.sendMessage(new CometChat.TextMessage(uid,text,CometChat.RECEIVER_TYPE.USER)));
-const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{ // brief account swap to post as the persona
+const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
   await CometChat.logout();
   try{await CometChat.login(uid,AUTH_KEY);await CometChat.sendMessage(new CometChat.TextMessage(ME_UID,text,CometChat.RECEIVER_TYPE.USER))}
   finally{await CometChat.login(ME_UID,AUTH_KEY)}
@@ -262,11 +274,11 @@ async function send(text){
   const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
   let reply;
   try{reply=await askAI(context+"\nAssistant:",p.system)}
-  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please try again in a moment."}
+  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please ensure your Gemini API Key is valid and try again."}
   pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
 }
 
-/* ---------- Action buttons (tool calls) ---------- */
+/* ---------- Action buttons ---------- */
 async function copyToClipboard(t){
   try{await navigator.clipboard.writeText(t)}
   catch{const a=document.createElement("textarea");a.value=t;document.body.append(a);a.select();document.execCommand("copy");a.remove()}
@@ -283,7 +295,7 @@ async function summarize(){
   pending[sid]=(pending[sid]||0)+1;showTyping();
   let out;
   try{out=await askAI("Summarize this conversation in 3-5 short bullet points:\n\n"+transcript(id),"You summarize chat sessions clearly and briefly.")}
-  catch{ // local fallback summary
+  catch{
     const asks=h.filter(m=>m.role==="user").slice(-3).map(m=>"• "+m.text.slice(0,80));
     out=`${h.length} messages so far. Recent topics:\n`+asks.join("\n");
   }
@@ -297,22 +309,15 @@ function exportChat(){
 }
 
 /* ---------- Voice input ---------- */
-
 (function() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  
-  // Safely grab elements
   const micBtn = document.getElementById("mic") || document.querySelector(".mic-btn") || document.querySelector("button[title*='Voice']");
   const inputField = document.getElementById("text") || document.querySelector("input[type='text']") || document.querySelector("textarea");
   const toastEl = document.getElementById("toast");
 
-  if (!micBtn || !inputField) {
-    console.error("Microphone or Text Input element not found in DOM.");
-    return;
-  }
+  if (!micBtn || !inputField) return;
 
   function showStatus(text, isError = false) {
-    console.log("[Mic Status]", text);
     if (toastEl) {
       toastEl.textContent = text;
       toastEl.className = "toast" + (isError ? " err" : "");
@@ -342,7 +347,7 @@ function exportChat(){
     try {
       showStatus("Requesting mic permission...");
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Permission granted
+      stream.getTracks().forEach(track => track.stop());
     } catch (err) {
       showStatus("Microphone permission denied (" + err.name + "). Click lock icon in address bar to allow.", true);
       return;
@@ -387,11 +392,8 @@ function exportChat(){
     showStatus("Mic stopped.");
   };
 })();
-  
 
-
-
-/* ---------- History manager: many chats per persona, all deletable ---------- */
+/* ---------- History manager ---------- */
 function goTo(pid){activeId=pid;try{localStorage.setItem("cc-studio:active",pid)}catch{};}
 function renderHistory(){
   const box=$("hist");box.innerHTML="";
@@ -419,7 +421,7 @@ function renderHistory(){
       bt.append(
         mk("Open",()=>{goTo(p.id);ps.cur=x.id;persist();applyPersona();box.hidden=true}),
         mk("🗑",async()=>{
-          if(!await askConfirm(`Delete the chat “${x.title}”?`))return;
+          if(!confirm(`Delete the chat “${x.title}”?`))return;
           deleteSession(p.id,x.id);if(p.id===activeId)render();renderHistory();
         },"danger"));
       row.append(st,bt);sec.append(row);
@@ -431,7 +433,7 @@ function renderHistory(){
 function deleteSession(pid,sid){const ps=pstore(pid);ps.list=ps.list.filter(x=>x.id!==sid);persist();pstore(pid)}
 async function deleteSessions(pid){
   const ids=pid?[pid]:PERSONAS.map(p=>p.id);
-  const ok=await askConfirm(pid?`Delete all ${persona(pid).name} chats?`:"Delete ALL chats in all three personas?");
+  const ok=confirm(pid?`Delete all ${persona(pid).name} chats?`:"Delete ALL chats in all three personas?");
   if(!ok)return;
   ids.forEach(i=>{store[i]={cur:null,list:[]};pstore(i)});persist();
   if(ids.includes(activeId))render();renderHistory();
