@@ -52,7 +52,7 @@
   .toast.err { border-color:var(--err); color:var(--err); }
   .hist { position:absolute; inset:0; background:var(--bg); z-index:10; overflow-y:auto; padding:16px; }
   .hist[hidden], .toast[hidden] { display:none; }
-  .hhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .hhead { display:flex; align-items:center; justify-space-between; margin-bottom:14px; }
   .hhead h2 { margin:0; font-size:1.05rem; }
   .hcard { border:1px solid var(--line); border-left:4px solid var(--c,var(--accent)); background:var(--panel); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
   .hcard h3 { margin:0 0 4px; font-size:.95rem; }
@@ -92,7 +92,7 @@
   <form id="composer">
     <button type="button" class="mic" id="mic" title="Voice input" aria-label="Toggle voice input">🎤</button>
     <input id="text" placeholder="Type or speak a message" autocomplete="off">
-    <button class="btn" id="send">Send</button>
+    <button type="submit" class="btn" id="send">Send</button>
   </form>
   <div class="hist" id="hist" hidden></div>
   <div class="modal" id="modal" hidden><div class="mbox"><p id="mtext"></p><div class="mbtn"><button type="button" class="iconbtn" id="mno">Cancel</button><button type="button" class="iconbtn danger" id="myes">Yes, delete</button></div></div></div>
@@ -109,7 +109,7 @@ const PERSONAS=[
   ctx:"Explains datasets, statistics and Python/pandas workflows.",
   system:"You are a Data Science Coach. ONLY answer questions related to data science, statistics, machine learning, and Python/pandas. If asked off-topic questions, politely steer the conversation back to data science.",
   chips:["⚡ Generate Python Script","🔍 Analyze Data Set","📈 Explain a Metric"]},
- {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡️️",accent:"#f472b6",
+ {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡",accent:"#f472b6",
   ctx:"Reviews code for bugs, security issues and clean design.",
   system:"You are a Code Auditor. ONLY assist with code reviews, security analysis, debugging, and software design. Politely decline general knowledge queries.",
   chips:["🐛 Debug Code","🔒 Security Review","♻ Suggest Refactors"]},
@@ -214,7 +214,7 @@ function applyPersona(){
   document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.id===activeId));
   const c=$("chips");c.innerHTML="";
   p.chips.forEach(txt=>{const b=document.createElement("button");b.type="button";b.className="chip";b.textContent=txt;
-    b.onclick=()=>{$("text").value=txt;send(txt)};c.append(b)});
+    b.onclick=()=>{send(txt)};c.append(b)});
   render();
 }
 function buildTabs(){
@@ -256,10 +256,16 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
 
 /* ---------- Send / reply ---------- */
 async function send(text){
-  text=(text||"").trim();if(!text)return;
+  const input = $("text");
+  const msgText = (text || (input ? input.value : "")).trim();
+  if(!msgText) return;
+
+  // Clear input box immediately
+  if(input) input.value = "";
+
   const id=activeId,p=persona(id),sid=curId(id);
-  const h=load(id,sid);h.push({role:"user",text,ts:Date.now()});save(id,h,sid);
-  $("#text").value="";render();ccSendUser(p.uid,text);
+  const h=load(id,sid);h.push({role:"user",text:msgText,ts:Date.now()});save(id,h,sid);
+  render();ccSendUser(p.uid,msgText);
   pending[sid]=(pending[sid]||0)+1;if(curId(activeId)===sid)showTyping();
   const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
   let reply;
@@ -267,6 +273,7 @@ async function send(text){
   catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please check your internet connection."}
   pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
 }
+
 /* ---------- Action buttons ---------- */
 async function copyToClipboard(t){
   try{await navigator.clipboard.writeText(t)}
@@ -276,37 +283,8 @@ async function copyMsg(m,btn){
   const code=[...m.text.matchAll(/```\w*\n?([\s\S]*?)```/g)].map(x=>x[1].trim());
   await copyToClipboard(code.length?code.join("\n\n"):m.text);
   const old=btn.textContent;btn.textContent="✅ Copied!";setTimeout(()=>btn.textContent=old,1400);
-}async function send(text){
-  text = (text || "").trim();
-  if (!text) return;
-
-  const id = activeId, p = persona(id), sid = curId(id);
-  const h = load(id, sid);
-
-  h.push({ role: "user", text, ts: Date.now() });
-  save(id, h, sid);
-
-  if ($("#text")) $("#text").value = "";
-  render();
-  if (typeof ccSendUser === "function") ccSendUser(p.uid, text);
-
-  pending[sid] = (pending[sid] || 0) + 1;
-  if (curId(activeId) === sid) showTyping();
-
-  const context = load(id, sid).slice(-8).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
-  let reply;
-
-  try {
-    reply = await askAI(context + "\nAssistant:", p.system);
-  } catch (e) {
-    console.warn(e);
-    reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
-  }
-
-  pending[sid]--;
-  pushBot(id, reply, sid);
-  if (typeof ccSendBot === "function") ccSendBot(p.uid, reply);
 }
+
 const transcript=id=>load(id).map(m=>`[${new Date(m.ts).toLocaleString()}] ${m.role==="user"?"You":persona(id).name}: ${m.text}`).join("\n\n");
 async function summarize(){
   const id=activeId,sid=curId(id),h=load(id,sid);
@@ -459,7 +437,7 @@ async function deleteSessions(pid){
 }
 
 /* ---------- Boot ---------- */
-$("composer").addEventListener("submit",e=>{e.preventDefault();send($("text").value)});
+$("composer").addEventListener("submit",e=>{e.preventDefault();send();});
 $("newBtn").onclick=()=>{newChat(activeId);render();$("hist").hidden=true;$("text").focus();setStatus("✨ New chat started.")};
 $("histBtn").onclick=()=>{renderHistory();$("hist").hidden=false};
 buildTabs();applyPersona();ccInit();
