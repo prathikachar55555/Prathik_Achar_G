@@ -255,43 +255,17 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
 });
 
 /* ---------- Send / reply ---------- */
-
 async function send(text){
-  // 1. Locate the input or textarea element on the screen directly
-  const inputEl = document.querySelector("input[type='text']") || document.querySelector("textarea") || document.getElementById("text");
-  
-  // 2. Extract message text from parameter or input element
-  const messageText = (text || (inputEl ? inputEl.value : "")).trim();
-  if (!messageText) return;
-
-  // 3. Clear the input field immediately
-  if (inputEl) inputEl.value = "";
-
-  const id = activeId, p = persona(id), sid = curId(id);
-  const h = load(id, sid);
-
-  h.push({ role: "user", text: messageText, ts: Date.now() });
-  save(id, h, sid);
-
-  render();
-  if (typeof ccSendUser === "function") ccSendUser(p.uid, messageText);
-
-  pending[sid] = (pending[sid] || 0) + 1;
-  if (curId(activeId) === sid) showTyping();
-
-  const context = load(id, sid).slice(-8).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
+  text=(text||"").trim();if(!text)return;
+  const id=activeId,p=persona(id),sid=curId(id);
+  const h=load(id,sid);h.push({role:"user",text,ts:Date.now()});save(id,h,sid);
+  $("#text").value="";render();ccSendUser(p.uid,text);
+  pending[sid]=(pending[sid]||0)+1;if(curId(activeId)===sid)showTyping();
+  const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
   let reply;
-
-  try {
-    reply = await askAI(context + "\nAssistant:", p.system);
-  } catch (e) {
-    console.warn("AI Endpoint Error:", e);
-    reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
-  }
-
-  pending[sid]--;
-  pushBot(id, reply, sid);
-  if (typeof ccSendBot === "function") ccSendBot(p.uid, reply);
+  try{reply=await askAI(context+"\nAssistant:",p.system)}
+  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please check your internet connection."}
+  pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
 }
 /* ---------- Action buttons ---------- */
 async function copyToClipboard(t){
