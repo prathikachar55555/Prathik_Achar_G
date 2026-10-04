@@ -255,36 +255,51 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
 });
 
 /* ---------- Send / reply ---------- */
-async function send(text){
+
+ // Helper for selector (Ensure this is at top-level scope near your other helper functions)
+const $ = (selector) => document.querySelector(selector);
+
+// Updated send() Function
+async function send(text) {
   text = (text || "").trim();
-  if(!text) return;
-  
+  if (!text) return;
+
   const id = activeId, p = persona(id), sid = curId(id);
   const h = load(id, sid);
-  
-  h.push({role: "user", text, ts: Date.now()});
+
+  // Save user message and update UI
+  h.push({ role: "user", text, ts: Date.now() });
   save(id, h, sid);
-  
-  if ($("#text")) $("#text").value = "";
+
+  const inputEl = $("#text");
+  if (inputEl) inputEl.value = "";
   render();
-  ccSendUser(p.uid, text);
-  
+
+  // Send to CometChat
+  if (typeof ccSendUser === "function") ccSendUser(p.uid, text);
+
+  // Show typing indicator
   pending[sid] = (pending[sid] || 0) + 1;
-  if (curId(activeId) === sid) showTyping();
-  
-  const context = load(id, sid).slice(-8).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
+  if (curId(activeId) === sid && typeof showTyping === "function") showTyping();
+
+  // Build conversation context
+  const context = load(id, sid)
+    .slice(-8)
+    .map((m) => (m.role === "user" ? "User: " : "Assistant: ") + m.text)
+    .join("\n");
+
   let reply;
-  
   try {
     reply = await askAI(context + "\nAssistant:", p.system);
   } catch (e) {
-    console.warn(e);
+    console.warn("AI Endpoint Error:", e);
     reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
   }
-  
+
+  // Hide typing and append bot reply
   pending[sid]--;
   pushBot(id, reply, sid);
-  ccSendBot(p.uid, reply);
+  if (typeof ccSendBot === "function") ccSendBot(p.uid, reply);
 }
 /* ---------- Action buttons ---------- */
 async function copyToClipboard(t){
