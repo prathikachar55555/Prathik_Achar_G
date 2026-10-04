@@ -256,16 +256,35 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
 
 /* ---------- Send / reply ---------- */
 async function send(text){
-  text=(text||"").trim();if(!text)return;
-  const id=activeId,p=persona(id),sid=curId(id);
-  const h=load(id,sid);h.push({role:"user",text,ts:Date.now()});save(id,h,sid);
-  $("#text").value="";render();ccSendUser(p.uid,text);
-  pending[sid]=(pending[sid]||0)+1;if(curId(activeId)===sid)showTyping();
-  const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
+  text = (text || "").trim();
+  if(!text) return;
+  
+  const id = activeId, p = persona(id), sid = curId(id);
+  const h = load(id, sid);
+  
+  h.push({role: "user", text, ts: Date.now()});
+  save(id, h, sid);
+  
+  if ($("#text")) $("#text").value = "";
+  render();
+  ccSendUser(p.uid, text);
+  
+  pending[sid] = (pending[sid] || 0) + 1;
+  if (curId(activeId) === sid) showTyping();
+  
+  const context = load(id, sid).slice(-8).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
   let reply;
-  try{reply=await askAI(context+"\nAssistant:",p.system)}
-  catch(e){console.warn(e);reply="I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";}
-  pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
+  
+  try {
+    reply = await askAI(context + "\nAssistant:", p.system);
+  } catch (e) {
+    console.warn(e);
+    reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
+  }
+  
+  pending[sid]--;
+  pushBot(id, reply, sid);
+  ccSendBot(p.uid, reply);
 }
 /* ---------- Action buttons ---------- */
 async function copyToClipboard(t){
