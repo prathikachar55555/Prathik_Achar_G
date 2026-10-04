@@ -270,7 +270,7 @@ async function send(text){
   const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
   let reply;
   try{reply=await askAI(context+"\nAssistant:",p.system)}
-  catch(e){console.warn(e);reply="Sorry, I couldn't reach the AI service just now. Please check your internet connection."}
+  catch(e){console.warn(e);reply="Unable to connect to the server. Please verify your network connection and try again."}
   pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
 }
 
