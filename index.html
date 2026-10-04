@@ -255,37 +255,8 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
 });
 
 /* ---------- Send / reply ---------- */
-async function send(text){
-  text = (text || "").trim();
-  if(!text) return;
 
-  const id = activeId, p = persona(id), sid = curId(id);
-  const h = load(id, sid);
 
-  h.push({role: "user", text, ts: Date.now()});
-  save(id, h, sid);
-
-  if($("#text")) $("#text").value = "";
-  render();
-  if(typeof ccSendUser === "function") ccSendUser(p.uid, text);
-
-  pending[sid] = (pending[sid] || 0) + 1;
-  if(curId(activeId) === sid) showTyping();
-
-  const context = load(id, sid).slice(-8).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
-  let reply;
-
-  try {
-    reply = await askAI(context + "\nAssistant:", p.system);
-  } catch(e) {
-    console.warn(e);
-    reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
-  }
-
-  pending[sid]--;
-  pushBot(id, reply, sid);
-  if(typeof ccSendBot === "function") ccSendBot(p.uid, reply);
-}
 /* ---------- Action buttons ---------- */
 async function copyToClipboard(t){
   try{await navigator.clipboard.writeText(t)}
@@ -295,6 +266,36 @@ async function copyMsg(m,btn){
   const code=[...m.text.matchAll(/```\w*\n?([\s\S]*?)```/g)].map(x=>x[1].trim());
   await copyToClipboard(code.length?code.join("\n\n"):m.text);
   const old=btn.textContent;btn.textContent="✅ Copied!";setTimeout(()=>btn.textContent=old,1400);
+}async function send(text){
+  text = (text || "").trim();
+  if (!text) return;
+
+  const id = activeId, p = persona(id), sid = curId(id);
+  const h = load(id, sid);
+
+  h.push({ role: "user", text, ts: Date.now() });
+  save(id, h, sid);
+
+  if ($("#text")) $("#text").value = "";
+  render();
+  if (typeof ccSendUser === "function") ccSendUser(p.uid, text);
+
+  pending[sid] = (pending[sid] || 0) + 1;
+  if (curId(activeId) === sid) showTyping();
+
+  const context = load(id, sid).slice(-8).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
+  let reply;
+
+  try {
+    reply = await askAI(context + "\nAssistant:", p.system);
+  } catch (e) {
+    console.warn(e);
+    reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
+  }
+
+  pending[sid]--;
+  pushBot(id, reply, sid);
+  if (typeof ccSendBot === "function") ccSendBot(p.uid, reply);
 }
 const transcript=id=>load(id).map(m=>`[${new Date(m.ts).toLocaleString()}] ${m.role==="user"?"You":persona(id).name}: ${m.text}`).join("\n\n");
 async function summarize(){
