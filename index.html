@@ -107,15 +107,15 @@ const ME_UID="cometchat-uid-1";
 const PERSONAS=[
  {id:"ds",uid:"cometchat-uid-2",name:"Data Science Coach",badge:"DATA SCIENCE",icon:"📊",accent:"#22d3ee",
   ctx:"Explains datasets, statistics and Python/pandas workflows.",
-  system:"You are a friendly Data Science Coach. Help with data analysis, statistics, pandas and ML. Be concise; put code in fenced code blocks.",
+  system:"You are a Data Science Coach. ONLY answer questions related to data science, statistics, machine learning, and Python/pandas. If asked off-topic questions, politely steer the conversation back to data science.",
   chips:["⚡ Generate Python Script","🔍 Analyze Data Set","📈 Explain a Metric"]},
- {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡️",accent:"#f472b6",
+ {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡️️",accent:"#f472b6",
   ctx:"Reviews code for bugs, security issues and clean design.",
-  system:"You are a meticulous Code Auditor. Find bugs, security flaws and code smells, and suggest fixes. Be concise; put code in fenced code blocks.",
+  system:"You are a Code Auditor. ONLY assist with code reviews, security analysis, debugging, and software design. Politely decline general knowledge queries.",
   chips:["🐛 Debug Code","🔒 Security Review","♻ Suggest Refactors"]},
  {id:"gen",uid:"cometchat-uid-4",name:"General AI",badge:"GENERAL",icon:"✨",accent:"#a78bfa",
   ctx:"Everyday assistant for questions, writing and ideas.",
-  system:"You are a helpful, concise general-purpose AI assistant.",
+  system:"You are a general-purpose AI assistant. ONLY answer general questions, brainstorming requests, writing tasks, and general knowledge queries. If asked specialized coding or data science questions, suggest switching to the Data Science Coach or Code Auditor tab.",
   chips:["💡 Brainstorm Ideas","✍️ Draft an Email","📚 Explain Simply"]}
 ];
 
