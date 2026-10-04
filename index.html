@@ -52,7 +52,7 @@
   .toast.err { border-color:var(--err); color:var(--err); }
   .hist { position:absolute; inset:0; background:var(--bg); z-index:10; overflow-y:auto; padding:16px; }
   .hist[hidden], .toast[hidden] { display:none; }
-  .hhead { display:flex; align-items:center; justify-space-between; margin-bottom:14px; }
+  .hhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
   .hhead h2 { margin:0; font-size:1.05rem; }
   .hcard { border:1px solid var(--line); border-left:4px solid var(--c,var(--accent)); background:var(--panel); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
   .hcard h3 { margin:0 0 4px; font-size:.95rem; }
@@ -107,15 +107,15 @@ const ME_UID="cometchat-uid-1";
 const PERSONAS=[
  {id:"ds",uid:"cometchat-uid-2",name:"Data Science Coach",badge:"DATA SCIENCE",icon:"📊",accent:"#22d3ee",
   ctx:"Explains datasets, statistics and Python/pandas workflows.",
-  system:"You are a Data Science Coach. ONLY answer questions related to data science, statistics, machine learning, and Python/pandas. If asked off-topic questions, politely steer the conversation back to data science.",
+  system:"You are a Data Science Coach. Respond concisely on data science, statistics, machine learning, and Python.",
   chips:["⚡ Generate Python Script","🔍 Analyze Data Set","📈 Explain a Metric"]},
  {id:"audit",uid:"cometchat-uid-3",name:"Code Auditor",badge:"CODE AUDIT",icon:"🛡",accent:"#f472b6",
   ctx:"Reviews code for bugs, security issues and clean design.",
-  system:"You are a Code Auditor. ONLY assist with code reviews, security analysis, debugging, and software design. Politely decline general knowledge queries.",
+  system:"You are a Code Auditor. Focus concisely on code reviews, debugging, security, and refactoring.",
   chips:["🐛 Debug Code","🔒 Security Review","♻ Suggest Refactors"]},
  {id:"gen",uid:"cometchat-uid-4",name:"General AI",badge:"GENERAL",icon:"✨",accent:"#a78bfa",
   ctx:"Everyday assistant for questions, writing and ideas.",
-  system:"You are a general-purpose AI assistant. ONLY answer general questions, brainstorming requests, writing tasks, and general knowledge queries. If asked specialized coding or data science questions, suggest switching to the Data Science Coach or Code Auditor tab.",
+  system:"You are a general AI assistant. Give helpful, direct answers.",
   chips:["💡 Brainstorm Ideas","✍️ Draft an Email","📚 Explain Simply"]}
 ];
 
@@ -224,9 +224,10 @@ function buildTabs(){
     $("tabs").append(t)});
 }
 
-/* ---------- Free Keyless AI Integration ---------- */
+/* ---------- Optimized Keyless AI Integration ---------- */
 async function askAI(prompt, sys) {
-  const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(sys)}`;
+  // Pass model=openai to utilize lower-latency fast routes
+  const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(sys)}&model=openai`;
   const res = await fetch(url);
   if (!res.ok) throw new Error("AI API " + res.status);
   const out = (await res.text()).trim();
@@ -254,24 +255,41 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
   finally{await CometChat.login(ME_UID,AUTH_KEY)}
 });
 
-/* ---------- Send / reply ---------- */
+/* ---------- Optimized Asynchronous Send ---------- */
 async function send(text){
   const input = $("text");
   const msgText = (text || (input ? input.value : "")).trim();
   if(!msgText) return;
 
-  // Clear input box immediately
   if(input) input.value = "";
 
-  const id=activeId,p=persona(id),sid=curId(id);
-  const h=load(id,sid);h.push({role:"user",text:msgText,ts:Date.now()});save(id,h,sid);
-  render();ccSendUser(p.uid,msgText);
-  pending[sid]=(pending[sid]||0)+1;if(curId(activeId)===sid)showTyping();
-  const context=load(id,sid).slice(-8).map(m=>(m.role==="user"?"User: ":"Assistant: ")+m.text).join("\n");
+  const id = activeId, p = persona(id), sid = curId(id);
+  const h = load(id, sid);
+  
+  h.push({role:"user", text:msgText, ts:Date.now()});
+  save(id, h, sid);
+  render();
+
+  // Async background sync to CometChat
+  ccSendUser(p.uid, msgText);
+
+  pending[sid] = (pending[sid] || 0) + 1;
+  if(curId(activeId) === sid) showTyping();
+
+  // Reduced context slice size for fast API execution
+  const context = load(id, sid).slice(-4).map(m => (m.role === "user" ? "User: " : "Assistant: ") + m.text).join("\n");
+  
   let reply;
-  try{reply=await askAI(context+"\nAssistant:",p.system)}
-  catch(e){console.warn(e);reply="Unable to connect to the server. Please verify your network connection and try again."}
-  pending[sid]--;pushBot(id,reply,sid);ccSendBot(p.uid,reply);
+  try {
+    reply = await askAI(context + "\nAssistant:", p.system);
+  } catch(e) {
+    console.warn(e);
+    reply = "⚠️ Connection lost. Please check your internet connection and try again.";
+  }
+
+  pending[sid]--;
+  pushBot(id, reply, sid);
+  ccSendBot(p.uid, reply);
 }
 
 /* ---------- Action buttons ---------- */
