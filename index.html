@@ -257,13 +257,15 @@ const ccSendBot=(uid,text)=>ccReady&&ccTask(async()=>{
 /* ---------- Send / reply ---------- */
 
 async function send(text){
-  // 1. Get text from argument or input field
-  const inputEl = document.querySelector("#text") || document.querySelector("input") || document.querySelector("textarea");
+  // 1. Locate the input or textarea element on the screen directly
+  const inputEl = document.querySelector("input[type='text']") || document.querySelector("textarea") || document.getElementById("text");
+  
+  // 2. Extract message text from parameter or input element
   const messageText = (text || (inputEl ? inputEl.value : "")).trim();
-  if(!messageText) return;
+  if (!messageText) return;
 
-  // 2. Clear input field immediately
-  if(inputEl) inputEl.value = "";
+  // 3. Clear the input field immediately
+  if (inputEl) inputEl.value = "";
 
   const id = activeId, p = persona(id), sid = curId(id);
   const h = load(id, sid);
@@ -283,7 +285,7 @@ async function send(text){
   try {
     reply = await askAI(context + "\nAssistant:", p.system);
   } catch (e) {
-    console.warn(e);
+    console.warn("AI Endpoint Error:", e);
     reply = "I'm currently experiencing a brief delay connecting to the AI service. Please try sending your request again in a moment!";
   }
 
